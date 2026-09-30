@@ -1,0 +1,262 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: students_master
+    // Document ID: studentEmail (e.g., student.name@student.christuniversity.in)
+    // Fields:
+    //   - email: string (required, valid Christ University email)
+    //   - fullName: string (required, 2-100 chars)
+    //   - registerNumber: string (required, 4-20 chars)
+    //   - department: string (required, 2-100 chars)
+    //   - program: string (required, 2-100 chars)
+    //   - campus: string (required, e.g. 'Bangalore Yeshwanthpur Campus (BYC)')
+    //   - academicYear: string (required, 4-15 chars)
+    //   - phone: string (optional)
+    //   - status: string (required, enum: 'ACTIVE', 'ALUMNI', 'SUSPENDED')
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: tokens
+    // Document ID: auto-generated string (e.g., token_1740822000_abc)
+    // Fields:
+    //   - studentEmail: string (required, matches creator's auth email, immutable)
+    //   - studentName: string (required, 2-100 chars)
+    //   - registerNumber: string (required, 4-20 chars)
+    //   - department: string (required, 2-100 chars)
+    //   - centerId: string (required, allowed service center desk ID)
+    //   - serviceType: string (required, 2-100 chars)
+    //   - status: string (required, enum: 'PENDING', 'CALLED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW')
+    //   - priority: string (required, enum: 'REGULAR', 'URGENT', 'SPECIAL_ASSISTANCE')
+    //   - notes: string (optional, max 500 chars)
+    //   - phone: string (optional)
+    //   - assignedCounter: string (optional, updated by faculty)
+    //   - servedByFacultyId: string (optional, updated by faculty)
+    //   - facultyRemarks: string (optional, max 500 chars)
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: mail
+    // Document ID: auto-generated string
+    // Fields:
+    //   - to: string or list (required)
+    //   - message: map (required, must have subject and text)
+    //   - template: map (optional)
+    //   - tokenId: string (required)
+    //   - createdAt: timestamp (required)
+    //   - status: string (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Checks if the user is signed in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Checks if user has a verified Christ University email
+    function hasChristEmail() {
+      return isAuthenticated() &&
+        request.auth.token.email != null &&
+        (request.auth.token.email.matches(".*@([a-zA-Z0-9.-]+\\.)?christuniversity\\.in$") ||
+         request.auth.token.email.matches(".*@christuniversity\\.in$"));
+    }
+
+    // Admin authorization check (custom claim or admin flag)
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.role == 'admin' ||
+         request.auth.token.admin == true);
+    }
+
+    // Faculty check with custom claim centerId
+    function isFacultyForCenter(centerId) {
+      return isAuthenticated() &&
+        'centerId' in request.auth.token &&
+        request.auth.token.centerId == centerId;
+    }
+
+    // Checks if user is the student owner matching email
+    function isStudentOwner(studentEmail) {
+      return isAuthenticated() &&
+        request.auth.token.email != null &&
+        request.auth.token.email.lower() == studentEmail.lower();
+    }
+
+    // Service / Trigger routine authorization check
+    function isTriggerRoutineOrAdmin() {
+      return isAuthenticated() &&
+        (isAdmin() ||
+         request.auth.token.trigger_routine == true ||
+         request.auth.token.service_account == true);
+    }
+
+    // Allowed Centers
+    function isValidCenterId(centerId) {
+      return centerId in [
+        'general-enquiry',
+        'bonafide-certificates',
+        'fee-counter',
+        'scholarships',
+        'id-cards',
+        'bus-pass',
+        'transcripts-documents'
+      ];
+    }
+
+    // Allowed Token Statuses
+    function isValidTokenStatus(status) {
+      return status in ['PENDING', 'CALLED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'];
+    }
+
+    // Validate students_master document payload
+    function isValidStudentMaster(data) {
+      return data.keys().hasAll(['email', 'fullName', 'registerNumber', 'department', 'program', 'campus', 'academicYear', 'status']) &&
+        data.email is string &&
+        data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100 &&
+        data.registerNumber is string && data.registerNumber.size() >= 4 && data.registerNumber.size() <= 20 &&
+        data.department is string && data.department.size() >= 2 && data.department.size() <= 100 &&
+        data.program is string && data.program.size() >= 2 && data.program.size() <= 100 &&
+        data.campus is string &&
+        data.academicYear is string &&
+        data.status in ['ACTIVE', 'ALUMNI', 'SUSPENDED'];
+    }
+
+    // Validate token creation payload
+    function isValidTokenCreate(data) {
+      return data.keys().hasAll(['studentEmail', 'studentName', 'registerNumber', 'department', 'centerId', 'serviceType', 'status', 'priority', 'createdAt']) &&
+        data.studentEmail == request.auth.token.email &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 100 &&
+        data.registerNumber is string && data.registerNumber.size() >= 4 && data.registerNumber.size() <= 20 &&
+        data.department is string && data.department.size() >= 2 && data.department.size() <= 100 &&
+        isValidCenterId(data.centerId) &&
+        data.serviceType is string && data.serviceType.size() >= 2 && data.serviceType.size() <= 100 &&
+        data.status == 'PENDING' &&
+        data.priority in ['REGULAR', 'URGENT', 'SPECIAL_ASSISTANCE'] &&
+        data.createdAt is timestamp;
+    }
+
+    // Validate faculty token status update
+    function isValidFacultyTokenUpdate(newData, oldData) {
+      // Faculty can update status, assignedCounter, servedByFacultyId, facultyRemarks, updatedAt
+      // Crucial fields must remain unchanged (immutable fields)
+      return newData.studentEmail == oldData.studentEmail &&
+        newData.registerNumber == oldData.registerNumber &&
+        newData.studentName == oldData.studentName &&
+        newData.centerId == oldData.centerId &&
+        newData.createdAt == oldData.createdAt &&
+        isValidTokenStatus(newData.status);
+    }
+
+    // Validate student token update (students can only cancel their own pending tokens)
+    function isValidStudentTokenCancel(newData, oldData) {
+      return newData.studentEmail == oldData.studentEmail &&
+        newData.centerId == oldData.centerId &&
+        newData.createdAt == oldData.createdAt &&
+        oldData.status == 'PENDING' &&
+        newData.status == 'CANCELLED';
+    }
+
+    // Validate mail payload for trigger routines
+    function isValidMail(data) {
+      return data.keys().hasAll(['to', 'message', 'tokenId', 'createdAt']) &&
+        (data.to is string || data.to is list) &&
+        data.message is map &&
+        data.message.keys().hasAll(['subject', 'text']) &&
+        data.tokenId is string &&
+        data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // By default, deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------
+    // students_master Collection
+    // Document key is the student's email (lowercase)
+    // Read: authenticated student based on their own email matching document key, or Admin
+    // Write: Admin only
+    // -------------------------------------------------------------
+    match /students_master/{studentEmail} {
+      allow read: if isAuthenticated() &&
+        (isStudentOwner(studentEmail) || isAdmin());
+
+      allow create: if isAdmin() && isValidStudentMaster(request.resource.data);
+
+      allow update: if isAdmin() && isValidStudentMaster(request.resource.data);
+
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------
+    // tokens Collection
+    // Students can read/write only tokens where studentEmail == auth.token.email
+    // Faculty can read/update tokens matching their custom claim centerId
+    // Admin has full access
+    // -------------------------------------------------------------
+    match /tokens/{tokenId} {
+      // READ:
+      // - Student can read if token belongs to them
+      // - Faculty can read if their custom claim centerId matches token centerId
+      // - Admin can read all
+      allow read: if isAuthenticated() && (
+        (request.auth.token.email != null && resource.data.studentEmail == request.auth.token.email) ||
+        isFacultyForCenter(resource.data.centerId) ||
+        isAdmin()
+      );
+
+      // CREATE:
+      // - Student can create token where studentEmail == auth.token.email
+      // - Must satisfy Christ email domain
+      // - Admin can also create
+      allow create: if isAuthenticated() && hasChristEmail() && (
+        (request.resource.data.studentEmail == request.auth.token.email && isValidTokenCreate(request.resource.data)) ||
+        isAdmin()
+      );
+
+      // UPDATE:
+      // - Student can cancel their own pending token
+      // - Faculty with matching custom claim centerId can update status/counter/remarks
+      // - Admin can update
+      allow update: if isAuthenticated() && (
+        (resource.data.studentEmail == request.auth.token.email && isValidStudentTokenCancel(request.resource.data, resource.data)) ||
+        (isFacultyForCenter(resource.data.centerId) && isValidFacultyTokenUpdate(request.resource.data, resource.data)) ||
+        isAdmin()
+      );
+
+      // DELETE:
+      // Admin only
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------
+    // mail Collection
+    // Write-only for server-side logic and authenticated trigger routines
+    // Read: STRICTLY DENIED for client SDKs (write-only)
+    // Write: Authenticated trigger routines or Admins
+    // -------------------------------------------------------------
+    match /mail/{mailId} {
+      // Write-only: No read operations allowed
+      allow read: if false;
+
+      // Writeable by server-side logic and authenticated trigger routines
+      allow create: if isTriggerRoutineOrAdmin() && isValidMail(request.resource.data);
+
+      // Updates and deletes only by trigger routines or admin
+      allow update: if isTriggerRoutineOrAdmin();
+
+      allow delete: if isTriggerRoutineOrAdmin();
+    }
+  }
+}

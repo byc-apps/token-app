@@ -16,6 +16,8 @@ export const AUTH_ERROR_MESSAGES = {
     "Failed to complete Google SSO sign-in. Please try again or check your internet connection.",
   AUTH_POPUP_CLOSED:
     "Sign-in popup was closed before completing authentication. Please click sign-in to try again.",
+  CONFIG_ERROR_FIREBASE:
+    "This domain(URL) is not authorized in the Firebase console."
 };
 
 /**

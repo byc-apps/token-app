@@ -7,7 +7,7 @@ import {
 import { auth, googleProvider } from "./config";
 import {
   isChristUniversityEmail,
-  AUTH_ERROR_MESSAGES,
+  AUTH_ERROR_MESSAGES, // Cleanly imported from your central file
 } from "../auth/domain-verification";
 
 export interface AuthResult {
@@ -20,10 +20,6 @@ export interface AuthResult {
 /**
  * Initiates Google SSO login and strictly verifies that the account belongs
  * to Christ University or one of its valid subdomains.
- *
- * If domain verification fails:
- * 1. Automatically signs out the user from Firebase session.
- * 2. Returns a clean user-facing error message.
  */
 export async function signInWithGoogleSSO(): Promise<AuthResult> {
   try {
@@ -59,12 +55,25 @@ export async function signInWithGoogleSSO(): Promise<AuthResult> {
     };
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
+    
+    // 1. Handle Firebase domain authorization errors (e.g. Codespaces preview URL missing)
+    if (err.code === "auth/unauthorized-domain") {
+      console.error("Error: This domain is not authorized in the Firebase console.");
+      return {
+        success: false,
+        error: AUTH_ERROR_MESSAGES.CONFIG_ERROR_FIREBASE,
+      };
+    }
+
+    // 2. Handle when user closes the Google authentication modal manually
     if (err.code === "auth/popup-closed-by-user") {
       return {
         success: false,
         error: AUTH_ERROR_MESSAGES.AUTH_POPUP_CLOSED,
       };
     }
+
+    // 3. Fallback generic error handler
     return {
       success: false,
       error: err.message || AUTH_ERROR_MESSAGES.SIGN_IN_FAILED,

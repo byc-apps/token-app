@@ -5,6 +5,7 @@ import { User, onIdTokenChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import { signInWithGoogleSSO, signOutUser, AuthResult } from "@/lib/firebase/auth-service";
 import { isChristUniversityEmail, getUserRoleFromEmail } from "@/lib/auth/domain-verification";
+import { apiFetch } from "@/lib/api-client";
 
 interface CustomClaims {
   centerId?: string;
@@ -68,9 +69,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await signInWithGoogleSSO();
     if (!result.success) {
       setError(result.error || "Authentication failed");
+      setLoading(false);
+      return result;
     }
-    setLoading(false);
-    return result;
+
+    // Google sign-in worked; now let the server verify the token and
+    // create / load this user's record (role, centres, status).
+    try {
+      await apiFetch("/auth/login", { method: "POST" });
+      setLoading(false);
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not complete sign-in.";
+      await signOutUser(); // don't stay signed in on the client without a server record
+      setError(message);
+      setLoading(false);
+      return { success: false, error: message };
+    }
   };
 
   const handleSignOut = async (): Promise<void> => {

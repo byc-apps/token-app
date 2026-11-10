@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasPermission, isGlobalRole, ROLES, PERMISSIONS } from "../shared/roles";
-import { isAllowedEmail } from "../shared/email";
-import { istDateKey, istDateTime, istWeekday } from "../shared/time";
+import { hasPermission, isGlobalRole, ROLES, PERMISSIONS } from "../api/shared/roles";
+import { isAllowedEmail } from "../api/shared/email";
+import { istDateKey, istDateTime, istWeekday } from "../api/shared/time";
 
 test("permission matrix", () => {
   assert.ok(hasPermission("app_admin", "users:manage"));

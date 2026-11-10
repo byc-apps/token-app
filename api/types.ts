@@ -1,4 +1,4 @@
-import type { UserWithId } from "../shared/schemas";
+import type { UserWithId } from "./shared/schemas";
 
 /** Hono environment: values stored on the request context. */
 export type AppEnv = {

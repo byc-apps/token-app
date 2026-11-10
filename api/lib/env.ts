@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEFAULT_ALLOWED_DOMAIN } from "../../shared/email";
+import { DEFAULT_ALLOWED_DOMAIN } from "../shared/email";
 
 const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().min(1),

@@ -5,8 +5,8 @@ import {
   isGlobalRole,
   type Permission,
   type Role,
-} from "../../shared/roles";
-import type { UserWithId } from "../../shared/schemas";
+} from "../shared/roles";
+import type { UserWithId } from "../shared/schemas";
 import type { AppEnv } from "../types";
 
 /** Route guard. Use AFTER requireAuth:  app.get("/x", requireAuth, requirePermission("reports:all"), ...) */

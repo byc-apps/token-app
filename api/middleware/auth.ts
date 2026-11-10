@@ -3,7 +3,7 @@ import type { DecodedIdToken } from "firebase-admin/auth";
 import { adminAuth } from "../lib/firebase-admin";
 import { getEnv } from "../lib/env";
 import { AppError, forbidden, unauthenticated } from "../lib/errors";
-import { isAllowedEmail } from "../../shared/email";
+import { isAllowedEmail } from "../shared/email";
 import { getUserById } from "../services/users";
 import type { AppEnv } from "../types";
 

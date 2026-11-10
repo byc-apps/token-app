@@ -8,7 +8,7 @@ import {
   userDocSchema,
   type UserDoc,
   type UserWithId,
-} from "../../shared/schemas";
+} from "../shared/schemas";
 
 export function parseUserDoc(uid: string, data: unknown): UserWithId {
   const parsed = userDocSchema.safeParse(data);

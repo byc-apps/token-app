@@ -4,7 +4,13 @@ import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import { AppError, errorBody } from "./lib/errors";
 import { authRoutes } from "./routes/auth";
+import { centreRoutes } from "./routes/centres";
+import { departmentRoutes } from "./routes/departments";
 import { healthRoutes } from "./routes/health";
+import { profileRoutes } from "./routes/profile";
+import { settingsRoutes } from "./routes/settings";
+import { staffRoutes } from "./routes/staff";
+import { userRoutes } from "./routes/users";
 import type { AppEnv } from "./types";
 
 export const app = new Hono<AppEnv>().basePath("/api");
@@ -37,6 +43,12 @@ app.use(
 // Routes
 app.route("/", healthRoutes);
 app.route("/", authRoutes);
+app.route("/", centreRoutes);
+app.route("/", staffRoutes);
+app.route("/", departmentRoutes);
+app.route("/", userRoutes);
+app.route("/", profileRoutes);
+app.route("/", settingsRoutes);
 
 app.notFound((c) =>
   c.json(errorBody("NOT_FOUND", "Route not found.", c.get("requestId")), 404),
@@ -46,7 +58,7 @@ app.notFound((c) =>
 app.onError((err, c) => {
   const requestId = c.get("requestId");
   if (err instanceof AppError) {
-    return c.json(errorBody(err.code, err.message, requestId), err.status);
+    return c.json(errorBody(err.code, err.message, requestId, err.details), err.status);
   }
   if (err instanceof HTTPException) {
     const status = err.status === 401 || err.status === 403 || err.status === 404 ? err.status : 400;

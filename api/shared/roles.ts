@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   "feedback:give",
   "reports:all", // all centres
   "reports:centre", // own centres
+  "settings:manage", // ID formats and other app settings
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -44,6 +45,7 @@ const ADMIN_SIDE: Permission[] = [
   "walkins:create",
   "reports:all",
   "reports:centre",
+  "settings:manage",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {

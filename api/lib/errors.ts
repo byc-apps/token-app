@@ -6,6 +6,7 @@ export class AppError extends Error {
     public readonly status: HttpStatus,
     public readonly code: string,
     message: string,
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = "AppError";
@@ -20,7 +21,11 @@ export const notFound = (message = "Not found.") => new AppError(404, "NOT_FOUND
 export const badRequest = (message = "Invalid request.") =>
   new AppError(400, "BAD_REQUEST", message);
 export const conflict = (message = "Conflict.") => new AppError(409, "CONFLICT", message);
+export const validationError = (details: unknown) =>
+  new AppError(400, "VALIDATION_ERROR", "Some fields are invalid.", details);
 
-export function errorBody(code: string, message: string, requestId?: string) {
-  return { error: { code, message, requestId } };
+export function errorBody(code: string, message: string, requestId?: string, details?: unknown) {
+  return {
+    error: { code, message, requestId, ...(details !== undefined ? { details } : {}) },
+  };
 }

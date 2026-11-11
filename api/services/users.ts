@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "../lib/firebase-admin";
 import { getEnv } from "../lib/env";
 import { AppError } from "../lib/errors";
+import { idKeyOf, isProfileComplete } from "../shared/ids";
 import {
   preRegisteredSchema,
   userDocSchema,
@@ -28,7 +29,7 @@ export async function getUserById(uid: string): Promise<UserWithId | null> {
  * First sign-in: create `users/{uid}`.
  *  - email in BOOTSTRAP_ADMIN_EMAILS  -> app_admin (only at creation time)
  *  - admin pre-registered the email   -> use that record, then delete it
- *  - anyone else with a valid CHRIST email -> student_faculty
+ *  - anyone else with a valid CHRIST email -> student_faculty, unverified
  * Runs in a transaction so two parallel first logins cannot create duplicates.
  */
 export async function loginOrRegister(
@@ -49,17 +50,34 @@ export async function loginOrRegister(
     const preData = pre?.success ? pre.data : null;
     const isBootstrapAdmin = getEnv().bootstrapAdmins.includes(email);
 
+    // An admin-entered ID is linked to this account unless someone else claimed it meanwhile.
+    let identity = {
+      userType: preData?.userType ?? null,
+      regNo: preData?.regNo ?? null,
+      empId: preData?.empId ?? null,
+    };
+    const idKey = idKeyOf(identity);
+    let linkRef = null;
+    if (idKey) {
+      linkRef = db.collection("idLinks").doc(idKey);
+      const linkSnap = await tx.get(linkRef);
+      if (linkSnap.exists) {
+        identity = { userType: null, regNo: null, empId: null };
+        linkRef = null;
+      }
+    }
+
     const candidate: UserDoc = userDocSchema.parse({
       email,
       name: (preData?.name ?? decoded.name ?? email.split("@")[0]).slice(0, 200),
       role: isBootstrapAdmin ? "app_admin" : (preData?.role ?? "student_faculty"),
       status: "active",
-      userType: preData?.userType ?? null,
+      // Admin-added and bootstrap accounts are trusted; self-registered ones wait in the "Unverified" list.
+      verified: isBootstrapAdmin || preData !== null,
+      ...identity,
       centreIds: preData?.centreIds ?? [],
       primaryCentreId: preData?.primaryCentreId ?? null,
-      regNo: preData?.regNo ?? null,
-      empId: preData?.empId ?? null,
-      department: preData?.department ?? null,
+      departmentId: preData?.departmentId ?? null,
       mobile: preData?.mobile ?? null,
     });
 
@@ -68,6 +86,14 @@ export async function loginOrRegister(
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    if (linkRef) {
+      tx.set(linkRef, {
+        uid: decoded.uid,
+        userType: candidate.userType,
+        email,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
     if (preSnap.exists) tx.delete(preRef);
 
     return { user: { uid: decoded.uid, ...candidate }, created: true };
@@ -82,8 +108,13 @@ export function toPublicUser(u: UserWithId) {
     name: u.name,
     role: u.role,
     userType: u.userType,
+    regNo: u.regNo,
+    empId: u.empId,
+    departmentId: u.departmentId,
+    mobile: u.mobile,
     centreIds: u.centreIds,
     primaryCentreId: u.primaryCentreId,
     status: u.status,
+    profileComplete: isProfileComplete(u),
   };
 }

@@ -16,7 +16,7 @@ const user = (o: Partial<UserWithId>): UserWithId => ({
   primaryCentreId: null,
   regNo: null,
   empId: null,
-  department: null,
+  departmentId: null,
   mobile: null,
   ...o,
 });
@@ -107,4 +107,26 @@ test("disabling is flagged so tokens get revoked; no-op changes are empty", () =
   const student = user({ uid: "s1" });
   assert.equal(planUserUpdate(admin, student, { status: "disabled" }).disables, true);
   assert.deepEqual(planUserUpdate(admin, student, { name: "A" }).changedFields, []);
+});
+
+test("admin edits keep Register No. / Employee ID consistent and formatted", () => {
+  const student = user({ uid: "s1" });
+  // student needs a 7-digit Register No.
+  assert.equal(status(() => planUserUpdate(admin, student, { userType: "student", regNo: "123" })), 400);
+  const ok = planUserUpdate(admin, student, { userType: "student", regNo: "2543101" });
+  assert.equal(ok.newIdKey, "student_2543101");
+  assert.equal(ok.oldIdKey, null);
+  // an ID without a type is refused
+  assert.equal(status(() => planUserUpdate(admin, student, { regNo: "2543101" })), 400);
+  // faculty cannot carry a Register No.
+  const staffUser = user({ uid: "f1", userType: "faculty", empId: "1414" });
+  assert.equal(status(() => planUserUpdate(admin, staffUser, { regNo: "2543101" })), 400);
+});
+
+test("changing an ID reports old and new link keys; IDs are upper-cased", () => {
+  const faculty = user({ uid: "f1", userType: "faculty", empId: "1414" });
+  const plan = planUserUpdate(admin, faculty, { empId: " ab12 " });
+  assert.equal(plan.oldIdKey, "faculty_1414");
+  assert.equal(plan.newIdKey, "faculty_AB12");
+  assert.equal(plan.changes.empId, "AB12");
 });

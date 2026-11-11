@@ -12,6 +12,17 @@ const cases: Array<[string, string]> = [
   ["POST", "/api/users/preregister"],
   ["GET", "/api/users/abc123"],
   ["PATCH", "/api/users/abc123"],
+  ["GET", "/api/departments"],
+  ["POST", "/api/departments"],
+  ["PATCH", "/api/departments/dep-cs"],
+  ["GET", "/api/settings"],
+  ["PATCH", "/api/settings"],
+  ["PUT", "/api/me/profile"],
+  ["PATCH", "/api/me/mobile"],
+  ["GET", "/api/centres/its/staff"],
+  ["POST", "/api/centres/its/staff"],
+  ["DELETE", "/api/centres/its/staff/abc123"],
+  ["DELETE", "/api/centres/its/pending/a@christuniversity.in"],
 ];
 
 for (const [method, path] of cases) {

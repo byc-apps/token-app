@@ -5,11 +5,14 @@ import { secureHeaders } from "hono/secure-headers";
 import { AppError, errorBody } from "./lib/errors";
 import { authRoutes } from "./routes/auth";
 import { centreRoutes } from "./routes/centres";
+import { centreSetupRoutes } from "./routes/centre-setup";
 import { departmentRoutes } from "./routes/departments";
 import { healthRoutes } from "./routes/health";
+import { opsRoutes } from "./routes/ops";
 import { profileRoutes } from "./routes/profile";
 import { settingsRoutes } from "./routes/settings";
 import { staffRoutes } from "./routes/staff";
+import { tokenRoutes } from "./routes/tokens";
 import { userRoutes } from "./routes/users";
 import type { AppEnv } from "./types";
 
@@ -49,6 +52,9 @@ app.route("/", departmentRoutes);
 app.route("/", userRoutes);
 app.route("/", profileRoutes);
 app.route("/", settingsRoutes);
+app.route("/", centreSetupRoutes);
+app.route("/", tokenRoutes);
+app.route("/", opsRoutes);
 
 app.notFound((c) =>
   c.json(errorBody("NOT_FOUND", "Route not found.", c.get("requestId")), 404),

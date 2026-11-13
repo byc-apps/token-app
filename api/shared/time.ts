@@ -33,3 +33,45 @@ export function istWeekday(dateKey: string): number {
   // Noon IST = 06:30 UTC on the same calendar date, so the UTC weekday is correct.
   return istDateTime(dateKey, "12:00").getUTCDay();
 }
+
+export const isDateKey = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  try {
+    istDateTime(value, "12:00");
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Add (or subtract) whole days to an IST calendar date. */
+export function addDays(dateKey: string, days: number): string {
+  const noon = istDateTime(dateKey, "12:00").getTime();
+  return istDateKey(new Date(noon + days * 86_400_000));
+}
+
+/** Whole days from a to b (b - a). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((istDateTime(b, "12:00").getTime() - istDateTime(a, "12:00").getTime()) / 86_400_000);
+}
+
+/** "HH:mm" for the given instant, as seen in IST. */
+export function istHHmm(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const h = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${h === "24" ? "00" : h}:${m}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-11-12" -> "12 Nov 2026" */
+export function formatDateKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-");
+  return `${d} ${MONTHS[Number(m) - 1] ?? m} ${y}`;
+}

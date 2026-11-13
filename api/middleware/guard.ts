@@ -31,3 +31,21 @@ export function canAccessCentre(user: UserWithId, centreId: string): boolean {
 export function assertCentreAccess(user: UserWithId, centreId: string): void {
   if (!canAccessCentre(user, centreId)) throw forbidden();
 }
+
+/**
+ * Token-level work (seeing who is booked, serving, cancelling). Confidential centres
+ * (Health, Counselor, CAPS) are limited to people assigned to that centre: App Admin and
+ * Campus Authority see only totals there.
+ */
+export function assertTokenAccess(
+  user: UserWithId,
+  centre: { id: string; confidential: boolean },
+): void {
+  if (centre.confidential) {
+    if (!user.centreIds.includes(centre.id)) {
+      throw forbidden("Only staff of this centre can see this information.");
+    }
+    return;
+  }
+  assertCentreAccess(user, centre.id);
+}

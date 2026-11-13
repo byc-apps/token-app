@@ -19,12 +19,14 @@ export async function authenticateToken(header: string | undefined): Promise<Dec
   if (!match) throw unauthenticated();
 
   const authClient = adminAuth();
-
- let decoded: DecodedIdToken;
+  let decoded: DecodedIdToken;
   try {
     decoded = await authClient.verifyIdToken(match[1], true);
   } catch (err) {
-    console.error("token_verify_failed", { code: (err as { code?: string }).code });
+    console.error("token_verify_failed", {
+      code: (err as { code?: string }).code,
+      detail: String((err as Error).message).slice(0, 300),
+    });
     throw new AppError(401, "INVALID_TOKEN", "Your session is invalid or expired. Please sign in again.");
   }
 

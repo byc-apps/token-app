@@ -3,6 +3,8 @@ import { authenticateToken, requireAuth } from "../middleware/auth";
 import { loginOrRegister, toPublicUser } from "../services/users";
 import { writeAudit } from "../lib/audit";
 import { AppError } from "../lib/errors";
+import { getEnv } from "../lib/env";
+import { enqueueEmail } from "../services/emails";
 import type { AppEnv } from "../types";
 
 export const authRoutes = new Hono<AppEnv>();
@@ -26,6 +28,13 @@ authRoutes.post("/auth/login", async (c) => {
       targetId: user.uid,
       meta: { role: user.role },
       requestId: c.get("requestId"),
+    });
+    await enqueueEmail({
+      dedupeKey: `welcome_${user.uid}`,
+      type: "welcome",
+      to: user.email,
+      userId: user.uid,
+      data: { name: user.name, appUrl: getEnv().appUrl },
     });
   }
   return c.json({ user: toPublicUser(user), created });

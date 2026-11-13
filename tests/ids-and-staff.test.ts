@@ -20,6 +20,7 @@ const user = (o: Partial<UserWithId>): UserWithId => ({
   empId: null,
   departmentId: null,
   mobile: null,
+  emailPrefs: { reminders: true, feedbackRequests: true },
   ...o,
 });
 const admin = user({ uid: "adm", role: "app_admin" });

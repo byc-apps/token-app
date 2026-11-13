@@ -115,6 +115,7 @@ export function toPublicUser(u: UserWithId) {
     centreIds: u.centreIds,
     primaryCentreId: u.primaryCentreId,
     status: u.status,
+    emailPrefs: u.emailPrefs,
     profileComplete: isProfileComplete(u),
   };
 }

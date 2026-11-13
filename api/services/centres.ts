@@ -32,6 +32,8 @@ export function toPublicCentre(c: CentreWithId) {
     tokenPrefix: c.tokenPrefix,
     location: c.location,
     confidential: c.confidential,
+    allowOther: c.config.allowOther,
+    services: c.services.filter((x) => x.active).map((x) => ({ id: x.id, name: x.name })),
   };
 }
 

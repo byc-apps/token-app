@@ -7,7 +7,7 @@
  */
 import { loadEnvConfig } from "@next/env";
 import { FieldValue } from "firebase-admin/firestore";
-import { adminDb } from "../api/lib/firebase-admin";
+import { adminDb } from "../lib/firebase-admin";
 
 loadEnvConfig(process.cwd());
 
@@ -17,8 +17,8 @@ const CENTRES = [
   { code: "ADM", name: "Admission / Certificates", confidential: false },
   { code: "EXM", name: "Exam Office", confidential: false },
   { code: "HLT", name: "CCHS - Health Centre", confidential: true },
-  { code: "CNS", name: "CCHS - Counselor", confidential: true },
-  { code: "CAPS", name: "CAPS", confidential: true },
+  { code: "CNS", name: "CCHS - Counselor", confidential: true, neutral: true },
+  { code: "CAPS", name: "CAPS", confidential: true, neutral: true },
   { code: "FAC", name: "Facility Management", confidential: false },
   { code: "ACC", name: "Accounts", confidential: false },
 ];
@@ -35,9 +35,14 @@ async function main() {
     await ref.create({
       name: c.name,
       code: c.code,
+      kind: "centre",
       confidential: c.confidential,
       location: null,
       active: true,
+      // Counselor and CAPS show a neutral screen (no token numbers) on the display.
+      config: { displayMode: "neutral" in c && c.neutral ? "neutral" : "tokens" },
+      services: [],
+      counters: [{ id: "c1", name: "Counter 1", active: true }],
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });

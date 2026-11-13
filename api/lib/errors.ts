@@ -1,4 +1,4 @@
-export type HttpStatus = 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500;
+export type HttpStatus = 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500 | 503;
 
 /** Errors we throw on purpose. Messages are safe to show to the user. */
 export class AppError extends Error {
